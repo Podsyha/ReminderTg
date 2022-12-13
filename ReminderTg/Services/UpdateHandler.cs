@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using ReminderTg.Models;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -59,6 +58,9 @@ public class UpdateHandler : IUpdateHandler
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
     }
 
+    /// <summary>
+    /// Получить список всех напоминаний юзера
+    /// </summary>
     private async Task<Message> GetReminderList(ITelegramBotClient botClient, Message message,
         CancellationToken cancellationToken)
     {
@@ -85,7 +87,7 @@ public class UpdateHandler : IUpdateHandler
         {
             var reminder = _reminders.FirstOrDefault(x => x.UserId == message.From.Id);
 
-            if (reminder is { ReminderDays.Length: > 0, IsSave: false })
+            if (reminder is { ReminderDays.Count: > 0, IsSave: false })
             {
                 _creationStages.Remove(stage);
                 reminder.IsSave = true;
@@ -93,7 +95,7 @@ public class UpdateHandler : IUpdateHandler
             }
             else
             {
-                text = $"Ошибка. Кол-во дней: {reminder.ReminderDays} ---- Статус: {reminder.IsSave}";
+                text = $"Ошибка. Кол-во дней: {reminder.ReminderDays.Count}. Статус: {reminder.IsSave}";
             }
         }
         else
@@ -130,33 +132,22 @@ public class UpdateHandler : IUpdateHandler
     private static async Task<Message> Usage(ITelegramBotClient botClient, Message message,
         CancellationToken cancellationToken)
     {
-        string usage;
         var stage = _creationStages.FirstOrDefault(x => x.UserId == message.From.Id);
 
         if (stage != null)
         {
-            switch (stage.StageType)
+            return stage.StageType switch
             {
-                case CreationStage.Stages.Title:
-                    usage = "Введите время напоминания";
-                    SetReminderTitle(stage, message.Text);
-                    break;
-                case CreationStage.Stages.Time:
-                    usage = SetReminderTime(stage, message.Text);
-                    break;
-                case CreationStage.Stages.Day:
-                    usage = "Введите дату напоминания";
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+                CreationStage.Stages.Title => await SetReminderTitle(stage, botClient, message, cancellationToken),
+                CreationStage.Stages.Time => await SetReminderTime(stage, botClient, message, cancellationToken),
+                CreationStage.Stages.Day => await SetReminderDays(stage, botClient, message, cancellationToken),
+                _ => throw new ArgumentOutOfRangeException()
+            };
         }
-        else
-        {
-            usage = "Доступные команды:\n" +
-                    "/create_reminder - создать напоминание\n" +
-                    "/list_reminder   - список всех напоминаний";
-        }
+
+        string usage = "Доступные команды:\n" +
+                       "/create_reminder - создать напоминание\n" +
+                       "/list_reminder   - список всех напоминаний";
 
         return await botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -168,37 +159,93 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить название напоминанию
     /// </summary>
-    private static void SetReminderTitle(CreationStage stage, string message)
+    private static async Task<Message> SetReminderTitle(CreationStage stage, ITelegramBotClient botClient,
+        Message message,
+        CancellationToken cancellationToken)
     {
-        _reminders.First(x => x.ReminderId == stage.ReminderId).Title = message;
+        _reminders.First(x => x.ReminderId == stage.ReminderId).Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
+
+        return await botClient.SendTextMessageAsync(
+            chatId: message.Chat.Id,
+            text: "Введите время напоминания:",
+            replyMarkup: new ReplyKeyboardRemove(),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
     /// Установить время напоминания
     /// </summary>
-    private static string SetReminderTime(CreationStage stage, string message)
+    private static async Task<Message> SetReminderTime(CreationStage stage, ITelegramBotClient botClient,
+        Message message,
+        CancellationToken cancellationToken)
     {
-        try
+        bool isParsed = TimeOnly.TryParse(message.Text, out TimeOnly resultTime);
+
+        if (!isParsed)
         {
-            TimeOnly time = TimeOnly.Parse(message);
-            _reminders.First(x => x.ReminderId == stage.ReminderId).RimenderTime = time;
-        }
-        catch (Exception e)
-        {
-            return "не удалось конвертировать значение";
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: "Ошибка конвертации времени, попробуйте снова:",
+                replyMarkup: new ReplyKeyboardRemove(),
+                cancellationToken: cancellationToken);
         }
 
+        _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderTime = resultTime;
         stage.StageType = CreationStage.Stages.Day;
 
-        return "Введите дату напоминания";
+        InlineKeyboardMarkup inlineKeyboard = new(
+            new[]
+            {
+                // first row
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("ПН", "1"),
+                    InlineKeyboardButton.WithCallbackData("ВТ", "2"),
+                    InlineKeyboardButton.WithCallbackData("СР", "3"),
+                    InlineKeyboardButton.WithCallbackData("ЧТ", "4"),
+                },
+                // second row
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("ПТ", "5"),
+                    InlineKeyboardButton.WithCallbackData("СБ", "6"),
+                    InlineKeyboardButton.WithCallbackData("ВС", "0")
+                },
+            });
+
+        return await botClient.SendTextMessageAsync(
+            chatId: message.Chat.Id,
+            text: "Выберите дни напоминания:",
+            replyMarkup: inlineKeyboard,
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
     /// Установить дни 
     /// </summary>
-    private static void SetReminderDays(CreationStage stage, string message)
+    private static async Task<Message> SetReminderDays(CreationStage stage, ITelegramBotClient botClient,
+        Message message,
+        CancellationToken cancellationToken)
     {
+        bool isParsed = Int32.TryParse(message.Text, out int resultNumberDay);
+
+        if (!isParsed)
+        {
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: "Ошибка конвертации даты, попробуйте снова:",
+                replyMarkup: new ReplyKeyboardRemove(),
+                cancellationToken: cancellationToken);
+        }
+
+        _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderDays.Add((DayOfWeek)resultNumberDay);
+
+        return await botClient.SendTextMessageAsync(
+            chatId: message.Chat.Id,
+            text: resultNumberDay.ToString(),
+            replyMarkup: new ReplyKeyboardRemove(),
+            cancellationToken: cancellationToken);
     }
 
     public async Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception,
