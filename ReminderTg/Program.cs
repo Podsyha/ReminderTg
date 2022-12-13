@@ -1,4 +1,5 @@
 using ReminderTg.Extensions;
+using ReminderTg.Services;
 using Telegram.Bot;
 
 IHost host = Host.CreateDefaultBuilder(args)
@@ -14,6 +15,10 @@ IHost host = Host.CreateDefaultBuilder(args)
                 TelegramBotClientOptions options = new(botConfig.BotToken);
                 return new TelegramBotClient(options, httpClient);
             });
+        
+        services.AddScoped<UpdateHandler>();
+        services.AddScoped<ReceiverService>();
+        services.AddHostedService<PollingService>();
     })
     .Build();
 
