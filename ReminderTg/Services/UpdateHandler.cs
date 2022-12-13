@@ -62,8 +62,8 @@ public class UpdateHandler : IUpdateHandler
     private async Task<Message> GetReminderList(ITelegramBotClient botClient, Message message,
         CancellationToken cancellationToken)
     {
-        var reminders = _reminders.Where(x => x.UserId == message.From.Id);
-        
+        var reminders = _reminders.Where(x => x.UserId == message.From.Id).Select(x => x.Title);
+
         return await botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: string.Join(", ", reminders),
@@ -93,7 +93,7 @@ public class UpdateHandler : IUpdateHandler
             }
             else
             {
-                text = $"Ошибка. Дни: {reminder.ReminderDays} ---- Статус: {reminder.IsSave}";
+                text = $"Ошибка. Кол-во дней: {reminder.ReminderDays} ---- Статус: {reminder.IsSave}";
             }
         }
         else
