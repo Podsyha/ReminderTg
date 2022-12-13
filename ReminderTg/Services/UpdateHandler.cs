@@ -29,6 +29,7 @@ public class UpdateHandler : IUpdateHandler
         var handler = update switch
         {
             { Message: { } message } => BotOnMessageReceived(message, cancellationToken),
+            { CallbackQuery: { } callbackQuery } => BotOnCallbackQueryReceived(callbackQuery, cancellationToken),
             _ => Task.CompletedTask
         };
 
@@ -36,10 +37,26 @@ public class UpdateHandler : IUpdateHandler
     }
 
     /// <summary>
+    /// 
+    /// </summary>
+    private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Received inline keyboard callback from: {CallbackQueryId}", callbackQuery.Id);
+
+        if (callbackQuery.Data is not { } messageTextData)
+            return;
+
+        Task<Message> action = messageTextData.Split(' ')[0] switch
+        {
+            "/end_reminder" => EndReminder(callbackQuery, cancellationToken),
+            _ => OtherMessage(callbackQuery, cancellationToken)
+        };
+    }
+
+    /// <summary>
     /// Обработчик сообщения
     /// </summary>
-    /// <param name="message"></param>
-    /// <param name="cancellationToken"></param>
     private async Task BotOnMessageReceived(Message message, CancellationToken cancellationToken)
     {
         _logger.LogInformation($"Receive message type: {message.Type}");
@@ -48,10 +65,10 @@ public class UpdateHandler : IUpdateHandler
 
         Task<Message> action = messageText.Split(' ')[0] switch
         {
-            "/create_reminder" => InitializeReminder(_botClient, message, cancellationToken),
-            "/end_reminder" => EndReminder(_botClient, message, cancellationToken),
-            "/list_reminder" => GetReminderList(_botClient, message, cancellationToken),
-            _ => Usage(_botClient, message, cancellationToken)
+            "/create_reminder" => InitializeReminder(message, cancellationToken),
+            "/end_reminder" => EndReminder(message, cancellationToken),
+            "/list_reminder" => GetReminderList(message, cancellationToken),
+            _ => OtherMessage(message, cancellationToken)
         };
 
         Message sentMessage = await action;
@@ -61,12 +78,12 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Получить список всех напоминаний юзера
     /// </summary>
-    private async Task<Message> GetReminderList(ITelegramBotClient botClient, Message message,
+    private async Task<Message> GetReminderList(Message message,
         CancellationToken cancellationToken)
     {
         var reminders = _reminders.Where(x => x.UserId == message.From.Id).Select(x => x.Title);
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: string.Join(", ", reminders),
             replyMarkup: new ReplyKeyboardRemove(),
@@ -77,7 +94,7 @@ public class UpdateHandler : IUpdateHandler
     /// Завершить заполнение и сохранить напоминание
     /// </summary>
     /// <returns></returns>
-    private async Task<Message> EndReminder(ITelegramBotClient botClient, Message message,
+    private async Task<Message> EndReminder(Message message,
         CancellationToken cancellationToken)
     {
         string text = string.Empty;
@@ -103,7 +120,7 @@ public class UpdateHandler : IUpdateHandler
             text = $"Ошибка. Состояние: {stage.StageType}";
         }
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: text,
             replyMarkup: new ReplyKeyboardRemove(),
@@ -113,7 +130,7 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Создать напоминание
     /// </summary>
-    private async Task<Message> InitializeReminder(ITelegramBotClient botClient, Message message,
+    private async Task<Message> InitializeReminder(Message message,
         CancellationToken cancellationToken)
     {
         ReminderModel reminder = new(message.From.Id);
@@ -122,14 +139,14 @@ public class UpdateHandler : IUpdateHandler
         _reminders.Add(reminder);
         _creationStages.Add(stage);
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: "Введите название напоминания",
             replyMarkup: new ReplyKeyboardRemove(),
             cancellationToken: cancellationToken);
     }
 
-    private static async Task<Message> Usage(ITelegramBotClient botClient, Message message,
+    private async Task<Message> OtherMessage(Message message,
         CancellationToken cancellationToken)
     {
         var stage = _creationStages.FirstOrDefault(x => x.UserId == message.From.Id);
@@ -138,9 +155,9 @@ public class UpdateHandler : IUpdateHandler
         {
             return stage.StageType switch
             {
-                CreationStage.Stages.Title => await SetReminderTitle(stage, botClient, message, cancellationToken),
-                CreationStage.Stages.Time => await SetReminderTime(stage, botClient, message, cancellationToken),
-                CreationStage.Stages.Day => await SetReminderDays(stage, botClient, message, cancellationToken),
+                CreationStage.Stages.Title => await SetReminderTitle(stage, message, cancellationToken),
+                CreationStage.Stages.Time => await SetReminderTime(stage, message, cancellationToken),
+                CreationStage.Stages.Day => await SetReminderDays(stage, message, cancellationToken),
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -149,7 +166,7 @@ public class UpdateHandler : IUpdateHandler
                        "/create_reminder - создать напоминание\n" +
                        "/list_reminder   - список всех напоминаний";
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: usage,
             replyMarkup: new ReplyKeyboardRemove(),
@@ -159,14 +176,13 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить название напоминанию
     /// </summary>
-    private static async Task<Message> SetReminderTitle(CreationStage stage, ITelegramBotClient botClient,
-        Message message,
+    private async Task<Message> SetReminderTitle(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
         _reminders.First(x => x.ReminderId == stage.ReminderId).Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: "Введите время напоминания:",
             replyMarkup: new ReplyKeyboardRemove(),
@@ -176,15 +192,14 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить время напоминания
     /// </summary>
-    private static async Task<Message> SetReminderTime(CreationStage stage, ITelegramBotClient botClient,
-        Message message,
+    private async Task<Message> SetReminderTime(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
         bool isParsed = TimeOnly.TryParse(message.Text, out TimeOnly resultTime);
 
         if (!isParsed)
         {
-            return await botClient.SendTextMessageAsync(
+            return await _botClient.SendTextMessageAsync(
                 chatId: message.Chat.Id,
                 text: "Ошибка конвертации времени, попробуйте снова:",
                 replyMarkup: new ReplyKeyboardRemove(),
@@ -197,7 +212,6 @@ public class UpdateHandler : IUpdateHandler
         InlineKeyboardMarkup inlineKeyboard = new(
             new[]
             {
-                // first row
                 new[]
                 {
                     InlineKeyboardButton.WithCallbackData("ПН", "1"),
@@ -205,16 +219,19 @@ public class UpdateHandler : IUpdateHandler
                     InlineKeyboardButton.WithCallbackData("СР", "3"),
                     InlineKeyboardButton.WithCallbackData("ЧТ", "4"),
                 },
-                // second row
                 new[]
                 {
                     InlineKeyboardButton.WithCallbackData("ПТ", "5"),
                     InlineKeyboardButton.WithCallbackData("СБ", "6"),
                     InlineKeyboardButton.WithCallbackData("ВС", "0")
                 },
+                new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("ЗАВЕРШИТЬ", "/end_reminder"),
+                }
             });
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: "Выберите дни напоминания:",
             replyMarkup: inlineKeyboard,
@@ -224,15 +241,14 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить дни 
     /// </summary>
-    private static async Task<Message> SetReminderDays(CreationStage stage, ITelegramBotClient botClient,
-        Message message,
+    private async Task<Message> SetReminderDays(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
         bool isParsed = Int32.TryParse(message.Text, out int resultNumberDay);
 
         if (!isParsed)
         {
-            return await botClient.SendTextMessageAsync(
+            return await _botClient.SendTextMessageAsync(
                 chatId: message.Chat.Id,
                 text: "Ошибка конвертации даты, попробуйте снова:",
                 replyMarkup: new ReplyKeyboardRemove(),
@@ -241,14 +257,14 @@ public class UpdateHandler : IUpdateHandler
 
         _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderDays.Add((DayOfWeek)resultNumberDay);
 
-        return await botClient.SendTextMessageAsync(
+        return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: resultNumberDay.ToString(),
             replyMarkup: new ReplyKeyboardRemove(),
             cancellationToken: cancellationToken);
     }
 
-    public async Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception,
+    public async Task HandlePollingErrorAsync(ITelegramBotClient _, Exception exception,
         CancellationToken cancellationToken)
     {
         var errorMessage = exception switch

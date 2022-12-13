@@ -1,6 +1,4 @@
-﻿using System.Net.Sockets;
-
-namespace ReminderTg.Models;
+﻿namespace ReminderTg.Models;
 
 /// <summary>
 /// Этап создания напоминания
