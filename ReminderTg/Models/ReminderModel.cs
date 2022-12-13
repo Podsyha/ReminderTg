@@ -10,6 +10,7 @@ public sealed class ReminderModel
         ReminderId = Guid.NewGuid();
         UserId = userId;
         IsSave = false;
+        ReminderDays = new();
     }
     
     public Guid ReminderId { get; set; }

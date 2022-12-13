@@ -47,11 +47,55 @@ public class UpdateHandler : IUpdateHandler
         if (callbackQuery.Data is not { } messageTextData)
             return;
 
-        Task<Message> action = messageTextData.Split(' ')[0] switch
+        Task action = messageTextData.Split(' ')[0] switch
         {
-            "/end_reminder" => EndReminder(callbackQuery, cancellationToken),
-            _ => OtherMessage(callbackQuery, cancellationToken)
+            "/end_reminder" => CallbackQueryEndReminder(callbackQuery, cancellationToken),
+            _ => OtherCallbackQuery(callbackQuery, cancellationToken)
         };
+
+        await action;
+    }
+
+    private async Task OtherCallbackQuery(CallbackQuery callbackQuery, CancellationToken cancellationToken)
+    {
+        var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
+
+        if (stage != null)
+            await SetReminderDays(stage, callbackQuery, cancellationToken);
+    }
+
+
+    //TODO копия метода из обработчика message, переписать и актуализировать
+    private async Task<Message> CallbackQueryEndReminder(CallbackQuery callbackQuery, CancellationToken cancellationToken)
+    {
+        string text = string.Empty;
+        var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
+
+        if (stage is { StageType: CreationStage.Stages.Day })
+        {
+            var reminder = _reminders.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
+
+            if (reminder is { ReminderDays.Count: > 0, IsSave: false })
+            {
+                _creationStages.Remove(stage);
+                reminder.IsSave = true;
+                text = "Сохранено";
+            }
+            else
+            {
+                text = $"Ошибка. Кол-во дней: {reminder.ReminderDays?.Count}. Статус: {reminder.IsSave}";
+            }
+        }
+        else
+        {
+            text = $"Ошибка. Состояние: {stage?.StageType}";
+        }
+
+        return await _botClient.SendTextMessageAsync(
+            chatId: callbackQuery.Message.Chat.Id,
+            text: text,
+            replyMarkup: new ReplyKeyboardRemove(),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -66,7 +110,7 @@ public class UpdateHandler : IUpdateHandler
         Task<Message> action = messageText.Split(' ')[0] switch
         {
             "/create_reminder" => InitializeReminder(message, cancellationToken),
-            "/end_reminder" => EndReminder(message, cancellationToken),
+            "/end_reminder" => MessageEndReminder(message, cancellationToken),
             "/list_reminder" => GetReminderList(message, cancellationToken),
             _ => OtherMessage(message, cancellationToken)
         };
@@ -94,7 +138,7 @@ public class UpdateHandler : IUpdateHandler
     /// Завершить заполнение и сохранить напоминание
     /// </summary>
     /// <returns></returns>
-    private async Task<Message> EndReminder(Message message,
+    private async Task<Message> MessageEndReminder(Message message,
         CancellationToken cancellationToken)
     {
         string text = string.Empty;
@@ -157,7 +201,6 @@ public class UpdateHandler : IUpdateHandler
             {
                 CreationStage.Stages.Title => await SetReminderTitle(stage, message, cancellationToken),
                 CreationStage.Stages.Time => await SetReminderTime(stage, message, cancellationToken),
-                CreationStage.Stages.Day => await SetReminderDays(stage, message, cancellationToken),
                 _ => throw new ArgumentOutOfRangeException()
             };
         }
@@ -241,26 +284,29 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить дни 
     /// </summary>
-    private async Task<Message> SetReminderDays(CreationStage stage, Message message,
+    private async Task SetReminderDays(CreationStage stage, CallbackQuery callbackQuery,
         CancellationToken cancellationToken)
     {
-        bool isParsed = Int32.TryParse(message.Text, out int resultNumberDay);
+        bool isParsed = Int32.TryParse(callbackQuery.Data, out int resultNumberDay);
 
         if (!isParsed)
         {
-            return await _botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
+            await _botClient.SendTextMessageAsync(
+                chatId: callbackQuery.Message.Chat.Id,
                 text: "Ошибка конвертации даты, попробуйте снова:",
                 replyMarkup: new ReplyKeyboardRemove(),
                 cancellationToken: cancellationToken);
+            
+            return;
         }
 
-        _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderDays.Add((DayOfWeek)resultNumberDay);
+        DayOfWeek dayOfWeek = (DayOfWeek)resultNumberDay;
 
-        return await _botClient.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: resultNumberDay.ToString(),
-            replyMarkup: new ReplyKeyboardRemove(),
+        _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderDays.Add(dayOfWeek);
+
+        await _botClient.AnswerCallbackQueryAsync(
+            callbackQueryId: callbackQuery.Id,
+            text: $"Received {callbackQuery.Data}",
             cancellationToken: cancellationToken);
     }
 
