@@ -28,14 +28,18 @@ public class UpdateHandler : IUpdateHandler
     /// </summary>
     public async Task HandleUpdateAsync(ITelegramBotClient _, Update update, CancellationToken cancellationToken)
     {
-        var handler = update switch
+        switch (update)
         {
-            { Message: { } message } => BotOnMessageReceived(message, cancellationToken),
-            { CallbackQuery: { } callbackQuery } => BotOnCallbackQueryReceived(callbackQuery, cancellationToken),
-            _ => Task.CompletedTask
-        };
-
-        await handler;
+            case { Message: { } message }:
+                await BotOnMessageReceived(message, cancellationToken);
+                break;
+            case { CallbackQuery: { } callbackQuery }:
+                await BotOnCallbackQueryReceived(callbackQuery, cancellationToken);
+                break;
+            default:
+                await Task.CompletedTask;
+                break;
+        }
     }
 
     /// <summary>
@@ -48,14 +52,16 @@ public class UpdateHandler : IUpdateHandler
 
         if (callbackQuery.Data is not { } messageTextData)
             return;
-
-        Task action = messageTextData.Split(' ')[0] switch
+        
+        switch (messageTextData.Split(' ')[0])
         {
-            "/end_reminder" => CallbackQueryEndReminder(callbackQuery, cancellationToken),
-            _ => OtherCallbackQuery(callbackQuery, cancellationToken)
-        };
-
-        await action;
+            case "/end_reminder":
+                await CallbackQueryEndReminder(callbackQuery, cancellationToken);
+                break;
+            default:
+                await OtherCallbackQuery(callbackQuery, cancellationToken);
+                break;
+        }
     }
 
     private async Task OtherCallbackQuery(CallbackQuery callbackQuery, CancellationToken cancellationToken)
@@ -105,20 +111,24 @@ public class UpdateHandler : IUpdateHandler
     /// </summary>
     private async Task BotOnMessageReceived(Message message, CancellationToken cancellationToken)
     {
-        _logger.LogInformation($"Receive message type: {message.Type}");
         if (message.Text is not { } messageText)
             return;
-
-        Task action = messageText.Split(' ')[0] switch
+        
+        switch (messageText.Split(' ')[0])
         {
-            "/create_reminder" => InitializeReminder(message, cancellationToken),
-            "/end_reminder" => MessageEndReminder(message, cancellationToken),
-            "/list_reminder" => GetReminderList(message, cancellationToken),
-            _ => OtherMessage(message, cancellationToken)
-        };
-
-        Message sentMessage = await action;
-        _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
+            case "/create_reminder":
+                await InitializeReminder(message, cancellationToken);
+                break;
+            case "/end_reminder":
+                await MessageEndReminder(message, cancellationToken);
+                break;
+            case "/list_reminder":
+                await GetReminderList(message, cancellationToken);
+                break;
+            default:
+                await OtherMessage(message, cancellationToken);
+                break;
+        }
     }
 
     /// <summary>
@@ -128,8 +138,6 @@ public class UpdateHandler : IUpdateHandler
         CancellationToken cancellationToken)
     {
         var reminders = _reminderRepository.GetAllUserReminders(message.From.Id);
-        
-        
 
         await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -201,16 +209,26 @@ public class UpdateHandler : IUpdateHandler
 
         if (stage != null)
         {
-            stage.StageType switch
+            switch (stage.StageType)
             {
-                CreationStage.Stages.Title => await SetReminderTitle(stage, message, cancellationToken),
-                CreationStage.Stages.Time => await SetReminderTime(stage, message, cancellationToken)
-            };
+                case CreationStage.Stages.Title:
+                    await SetReminderTitle(stage, message, cancellationToken);
+                    break;
+                case CreationStage.Stages.Time:
+                    await SetReminderTime(stage, message, cancellationToken);
+                    break;
+                case CreationStage.Stages.Day:
+                    await Task.CompletedTask;
+                    break;
+                default:
+                    await Task.CompletedTask;
+                    break;
+            }
         }
 
-        string usage = "Доступные команды:\n" +
-                       "/create_reminder - создать напоминание\n" +
-                       "/list_reminder   - список всех напоминаний";
+        const string usage = "Доступные команды:\n" +
+                             "/create_reminder - создать напоминание\n" +
+                             "/list_reminder   - список всех напоминаний";
 
         await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
