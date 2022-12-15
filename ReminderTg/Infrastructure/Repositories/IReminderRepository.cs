@@ -27,4 +27,9 @@ public interface IReminderRepository
     /// </summary>
     /// <param name="userId">Id пользователя</param>
     public Task<IList<ReminderModel>> GetAllUserReminders(long userId);
+    /// <summary>
+    /// Получить напоминание по ID
+    /// </summary>
+    /// <param name="reminderId">ID напоминания</param>
+    public Task<ReminderModel> GetReminderById(Guid reminderId);
 }

@@ -25,4 +25,7 @@ public sealed class ReminderRepository : DbContextRepository, IReminderRepositor
 
     public async Task<IList<ReminderModel>> GetAllUserReminders(long userId)
         => await DbContext.Reminder.Where(x => x.UserId == userId).ToListAsync();
+
+    public async Task<ReminderModel> GetReminderById(Guid reminderId)
+        => await DbContext.Reminder.FirstOrDefaultAsync(x => x.Id == reminderId);
 }

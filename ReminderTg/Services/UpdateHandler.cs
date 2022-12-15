@@ -21,6 +21,7 @@ public class UpdateHandler : IUpdateHandler
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<UpdateHandler> _logger;
     private readonly IReminderRepository _reminderRepository;
+    // TODO сделать хранение в памяти приложения с timelife
     private static List<CreationStage> _creationStages = new();
 
 
@@ -49,8 +50,6 @@ public class UpdateHandler : IUpdateHandler
     private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Received inline keyboard callback from: {CallbackQueryId}", callbackQuery.Id);
-
         if (callbackQuery.Data is not { } messageTextData)
             return;
 
@@ -72,18 +71,16 @@ public class UpdateHandler : IUpdateHandler
         if (stage != null)
             await SetReminderDays(stage, callbackQuery, cancellationToken);
     }
-
-
-    //TODO копия метода из обработчика message, переписать и актуализировать
-    private async Task<Message> CallbackQueryEndReminder(CallbackQuery callbackQuery,
+    
+    private async Task CallbackQueryEndReminder(CallbackQuery callbackQuery,
         CancellationToken cancellationToken)
     {
-        string text = string.Empty;
+        string text;
         var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
 
         if (stage is { StageType: CreationStage.Stages.Day })
         {
-            var reminder = _reminders.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
+            var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
 
             if (reminder is { ReminderDays.Count: > 0, IsSave: false })
             {
@@ -101,7 +98,7 @@ public class UpdateHandler : IUpdateHandler
             text = $"Ошибка. Состояние: {stage?.StageType}";
         }
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: callbackQuery.Message.Chat.Id,
             text: text,
             replyMarkup: new ReplyKeyboardRemove(),
@@ -165,7 +162,7 @@ public class UpdateHandler : IUpdateHandler
 
         await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
-            text: "Введите название напоминания",
+            text: "Введите название напоминания:",
             replyMarkup: new ReplyKeyboardRemove(),
             cancellationToken: cancellationToken);
     }
@@ -211,7 +208,8 @@ public class UpdateHandler : IUpdateHandler
     private async Task SetReminderTitle(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
-        _reminders.First(x => x.Id == stage.ReminderId).Title = message.Text;
+        var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+        reminder.Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
 
         await _botClient.SendTextMessageAsync(
@@ -227,6 +225,7 @@ public class UpdateHandler : IUpdateHandler
     private async Task SetReminderTime(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
+        //TODO сделать более умный парсер
         bool isParsed = TimeOnly.TryParse(message.Text, out TimeOnly resultTime);
 
         if (!isParsed)
@@ -240,7 +239,8 @@ public class UpdateHandler : IUpdateHandler
             return;
         }
 
-        _reminders.First(x => x.Id == stage.ReminderId).ReminderTime = resultTime;
+        var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+        reminder.ReminderTime = resultTime;
         stage.StageType = CreationStage.Stages.Day;
 
         InlineKeyboardMarkup inlineKeyboard = new(
@@ -292,8 +292,8 @@ public class UpdateHandler : IUpdateHandler
         }
 
         DayOfWeek dayOfWeek = (DayOfWeek)resultNumberDay;
-
-        _reminders.First(x => x.Id == stage.ReminderId).ReminderDays.Add(dayOfWeek);
+        var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+        reminder.ReminderDays.Add(dayOfWeek);
 
         await _botClient.AnswerCallbackQueryAsync(
             callbackQueryId: callbackQuery.Id,
