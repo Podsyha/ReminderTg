@@ -17,19 +17,30 @@ public class DbContextRepository
     /// </summary>
     /// <param name="model">Сущность бд</param>
     protected async Task AddModelAsync<T>(T model) where T : class
-        => await DbContext.AddAsync(model);
+    {
+        await DbContext.AddAsync(model);
+        await SaveChangesAsync();
+    }
 
     /// <summary>
     /// Удалить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    protected void RemoveModel<T>(T model) where T : class
-        => DbContext.Remove(model);
+    protected async Task RemoveModel<T>(T model) where T : class
+    {
+        DbContext.Remove(model);
+        await SaveChangesAsync();
+    }
 
     /// <summary>
     /// Обновить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    protected void UpdateModel<T>(T model) where T : class
-        => DbContext.Update(model);
+    protected async Task UpdateModel<T>(T model) where T : class
+    {
+        DbContext.Update(model);
+        await SaveChangesAsync();
+    }
+
+    private async Task SaveChangesAsync() => await DbContext.SaveChangesAsync();
 }

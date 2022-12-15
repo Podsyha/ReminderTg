@@ -16,8 +16,8 @@ namespace ReminderTg.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Title = table.Column<string>(type: "text", nullable: false),
-                    ReminderTime = table.Column<TimeOnly>(type: "time without time zone", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: true),
+                    ReminderTime = table.Column<TimeOnly>(type: "time without time zone", nullable: true),
                     ReminderDays = table.Column<int[]>(type: "integer[]", nullable: false),
                     UserId = table.Column<long>(type: "bigint", nullable: false),
                     IsSave = table.Column<bool>(type: "boolean", nullable: false)

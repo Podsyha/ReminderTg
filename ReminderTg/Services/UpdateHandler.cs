@@ -21,6 +21,7 @@ public class UpdateHandler : IUpdateHandler
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<UpdateHandler> _logger;
     private readonly IReminderRepository _reminderRepository;
+
     // TODO сделать хранение в памяти приложения с timelife
     private static List<CreationStage> _creationStages = new();
 
@@ -45,7 +46,7 @@ public class UpdateHandler : IUpdateHandler
     }
 
     /// <summary>
-    /// 
+    /// Обработчик callback запроса
     /// </summary>
     private async Task BotOnCallbackQueryReceived(CallbackQuery callbackQuery,
         CancellationToken cancellationToken)
@@ -64,6 +65,9 @@ public class UpdateHandler : IUpdateHandler
         }
     }
 
+    /// <summary>
+    /// Обработка дефолтных запросов
+    /// </summary>
     private async Task OtherCallbackQuery(CallbackQuery callbackQuery, CancellationToken cancellationToken)
     {
         var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
@@ -71,7 +75,10 @@ public class UpdateHandler : IUpdateHandler
         if (stage != null)
             await SetReminderDays(stage, callbackQuery, cancellationToken);
     }
-    
+
+    /// <summary>
+    /// Завершение ввода напоминания
+    /// </summary>
     private async Task CallbackQueryEndReminder(CallbackQuery callbackQuery,
         CancellationToken cancellationToken)
     {
@@ -189,6 +196,8 @@ public class UpdateHandler : IUpdateHandler
                     await Task.CompletedTask;
                     break;
             }
+
+            return;
         }
 
         const string usage = "Доступные команды:\n" +
@@ -211,6 +220,7 @@ public class UpdateHandler : IUpdateHandler
         var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
         reminder.Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
+        _reminderRepository.UpdateReminder(reminder);
 
         await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -242,6 +252,7 @@ public class UpdateHandler : IUpdateHandler
         var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
         reminder.ReminderTime = resultTime;
         stage.StageType = CreationStage.Stages.Day;
+        _reminderRepository.UpdateReminder(reminder);
 
         InlineKeyboardMarkup inlineKeyboard = new(
             new[]
@@ -294,6 +305,7 @@ public class UpdateHandler : IUpdateHandler
         DayOfWeek dayOfWeek = (DayOfWeek)resultNumberDay;
         var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
         reminder.ReminderDays.Add(dayOfWeek);
+        _reminderRepository.UpdateReminder(reminder);
 
         await _botClient.AnswerCallbackQueryAsync(
             callbackQueryId: callbackQuery.Id,

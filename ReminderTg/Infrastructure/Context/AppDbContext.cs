@@ -23,6 +23,9 @@ public class AppDbContext : DbContext
          modelBuilder.Entity<ReminderModel>()
              .Property(x => x.IsSave)
              .IsRequired();
+         modelBuilder.Entity<ReminderModel>()
+             .Property(x => x.UserId)
+             .IsRequired();
          #endregion
     }
     

@@ -35,11 +35,10 @@ namespace ReminderTg.Migrations
                         .IsRequired()
                         .HasColumnType("integer[]");
 
-                    b.Property<TimeOnly>("ReminderTime")
+                    b.Property<TimeOnly?>("ReminderTime")
                         .HasColumnType("time without time zone");
 
                     b.Property<string>("Title")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<long>("UserId")

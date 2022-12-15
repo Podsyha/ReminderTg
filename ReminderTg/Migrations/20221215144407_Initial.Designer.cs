@@ -12,7 +12,7 @@ using ReminderTg.Infrastructure.Context;
 namespace ReminderTg.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20221215143335_Initial")]
+    [Migration("20221215144407_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -38,11 +38,10 @@ namespace ReminderTg.Migrations
                         .IsRequired()
                         .HasColumnType("integer[]");
 
-                    b.Property<TimeOnly>("ReminderTime")
+                    b.Property<TimeOnly?>("ReminderTime")
                         .HasColumnType("time without time zone");
 
                     b.Property<string>("Title")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<long>("UserId")
