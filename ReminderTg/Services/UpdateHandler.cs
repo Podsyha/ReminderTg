@@ -1,3 +1,4 @@
+using System.Globalization;
 using ReminderTg.Infrastructure.Models;
 using ReminderTg.Infrastructure.Repositories;
 using Telegram.Bot;
@@ -72,6 +73,8 @@ public class UpdateHandler : IUpdateHandler
 
         if (stage != null)
             await SetReminderDays(stage, callbackQuery, cancellationToken);
+        else
+            await WriteCommands(callbackQuery.From.Id, cancellationToken);
     }
 
     /// <summary>
@@ -91,6 +94,7 @@ public class UpdateHandler : IUpdateHandler
             {
                 _creationStagesRepository.RemoveStage(stage);
                 reminder.IsSave = true;
+                _reminderRepository.UpdateReminder(reminder);
                 text = "Сохранено";
             }
             else
@@ -120,7 +124,7 @@ public class UpdateHandler : IUpdateHandler
 
         switch (messageText.Split(' ')[0])
         {
-            case "/create_reminder":
+            case "/create_repeat_reminder":
                 await InitializeReminder(message, cancellationToken);
                 break;
             case "/list_reminder":
@@ -198,15 +202,7 @@ public class UpdateHandler : IUpdateHandler
             return;
         }
 
-        const string usage = "Доступные команды:\n" +
-                             "/create_reminder - создать напоминание\n" +
-                             "/list_reminder   - список всех напоминаний";
-
-        await _botClient.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: usage,
-            replyMarkup: new ReplyKeyboardRemove(),
-            cancellationToken: cancellationToken);
+        await WriteCommands(message.From.Id, cancellationToken);
     }
 
     /// <summary>
@@ -289,7 +285,7 @@ public class UpdateHandler : IUpdateHandler
     {
         bool isParsed = Int32.TryParse(callbackQuery.Data, out int resultNumberDay);
 
-        if (!isParsed)
+        if (!isParsed || resultNumberDay >= 7)
         {
             await _botClient.SendTextMessageAsync(
                 chatId: callbackQuery.Message.Chat.Id,
@@ -302,13 +298,26 @@ public class UpdateHandler : IUpdateHandler
 
         DayOfWeek dayOfWeek = (DayOfWeek)resultNumberDay;
         var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
-        reminder.ReminderDays.Add(dayOfWeek);
-        _reminderRepository.UpdateReminder(reminder);
+        if (reminder.CheckAvailableDay(dayOfWeek))
+        {
+            reminder.ReminderDays.Add(dayOfWeek);
+            _reminderRepository.UpdateReminder(reminder);
 
-        await _botClient.AnswerCallbackQueryAsync(
-            callbackQueryId: callbackQuery.Id,
-            text: $"Received {callbackQuery.Data}",
-            cancellationToken: cancellationToken);
+            await _botClient.AnswerCallbackQueryAsync(
+                callbackQueryId: callbackQuery.Id,
+                text: $"Выбран: {CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetDayName(dayOfWeek)}",
+                cancellationToken: cancellationToken);
+        }
+        else
+        {
+            reminder.ReminderDays.Remove(dayOfWeek);
+            _reminderRepository.UpdateReminder(reminder);
+            
+            await _botClient.AnswerCallbackQueryAsync(
+                callbackQueryId: callbackQuery.Id,
+                text: $"Исключен: {CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetDayName(dayOfWeek)}",
+                cancellationToken: cancellationToken);
+        }
     }
 
     public async Task HandlePollingErrorAsync(ITelegramBotClient _, Exception exception,
@@ -326,5 +335,22 @@ public class UpdateHandler : IUpdateHandler
         // Cooldown in case of network connection error
         if (exception is RequestException)
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+    }
+    
+    /// <summary>
+    /// Вывести пользователю все доступные команды
+    /// </summary>
+    private async Task WriteCommands(ChatId chatId, CancellationToken cancellationToken)
+    {
+        const string usage = "Доступные команды:\n" +
+                             "/create_repeat_reminder - создать повторяющееся напоминание\n" +
+                             "/create_reminder - создать разовое напоминание(НЕДОСТУПНО)\n" +
+                             "/list_reminder   - список всех напоминаний";
+
+        await _botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: usage,
+            replyMarkup: new ReplyKeyboardRemove(),
+            cancellationToken: cancellationToken);
     }
 }

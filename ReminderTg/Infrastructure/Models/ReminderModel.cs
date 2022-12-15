@@ -14,14 +14,15 @@ public sealed class ReminderModel
         IsSave = false;
         ReminderDays = new();
     }
-    
+
+    //TODO добавить и учитыватьч асовой пояс
     public Guid Id { get; set; }
     public string? Title { get; set; }
     public TimeOnly? ReminderTime { get; set; }
     public List<DayOfWeek> ReminderDays { get; set; }
     public long UserId { get; set; }
     public bool IsSave { get; set; }
-    
+
     public override string ToString()
     {
         var days = string.Empty;
@@ -30,7 +31,9 @@ public sealed class ReminderModel
             days += "\n";
             days += CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetDayName(day);
         }
-        
+
         return $"Title: {Title}\n\nDays: {days}\n\nTime: {ReminderTime}";
     }
+
+    public bool CheckAvailableDay(DayOfWeek dayOfWeek) => ReminderDays.All(day => day != dayOfWeek);
 }

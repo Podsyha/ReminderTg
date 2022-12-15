@@ -13,18 +13,18 @@ public sealed class ReminderRepository : DbContextRepository, IReminderRepositor
     public async Task AddReminder(ReminderModel model)
         => await AddModelAsync(model);
 
-    public void RemoveReminder(ReminderModel model)
+    public async void RemoveReminder(ReminderModel model)
     {
-        RemoveModel(model);
+        await RemoveModel(model);
     }
 
-    public void UpdateReminder(ReminderModel model)
+    public async void UpdateReminder(ReminderModel model)
     {
-        UpdateModel(model);
+        await UpdateModel(model);
     }
 
     public async Task<IList<ReminderModel>> GetAllUserReminders(long userId)
-        => await DbContext.Reminder.Where(x => x.UserId == userId).ToListAsync();
+        => await DbContext.Reminder.Where(x => x.UserId == userId && x.IsSave).ToListAsync();
 
     public async Task<ReminderModel> GetReminderById(Guid reminderId)
         => await DbContext.Reminder.FirstOrDefaultAsync(x => x.Id == reminderId);
