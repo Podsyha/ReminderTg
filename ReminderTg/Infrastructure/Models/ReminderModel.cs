@@ -32,8 +32,13 @@ public sealed class ReminderModel
             days += CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetDayName(day);
         }
 
-        return $"Title: {Title}\n\nDays: {days}\n\nTime: {ReminderTime}";
+        return $"Название: {Title}\n\nДни: {days}\n\nВремя: {ReminderTime}";
     }
 
+    /// <summary>
+    /// Проверить можно ли добавить день недели
+    /// </summary>
+    /// <param name="dayOfWeek">День недели</param>
+    /// <returns>True - можно добавить. False - Нельзя, день уже добавлен</returns>
     public bool CheckAvailableDay(DayOfWeek dayOfWeek) => ReminderDays.All(day => day != dayOfWeek);
 }

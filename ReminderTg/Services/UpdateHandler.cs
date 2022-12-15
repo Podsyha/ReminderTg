@@ -53,15 +53,25 @@ public class UpdateHandler : IUpdateHandler
         if (callbackQuery.Data is not { } messageTextData)
             return;
 
-        switch (messageTextData.Split(' ')[0])
-        {
-            case "/end_reminder":
-                await CallbackQueryEndReminder(callbackQuery, cancellationToken);
-                break;
-            default:
-                await OtherCallbackQuery(callbackQuery, cancellationToken);
-                break;
-        }
+        var message = messageTextData.Split(' ')[0];
+
+        if (message == "/end_reminder")
+            await CallbackQueryEndReminder(callbackQuery, cancellationToken);
+        else if (message.StartsWith("/delete_reminder"))
+            await CallbackQueryDeleteReminder(callbackQuery, message, cancellationToken);
+        else
+            await OtherCallbackQuery(callbackQuery, cancellationToken);
+    }
+
+    /// <summary>
+    /// Удаление напоминания
+    /// </summary>
+    private async Task CallbackQueryDeleteReminder(CallbackQuery callbackQuery, string message,
+        CancellationToken cancellationToken)
+    {
+        var messageStrings = message.Split('_');
+        var reminderId = messageStrings[^1];
+        throw new NotImplementedException();
     }
 
     /// <summary>
@@ -312,7 +322,7 @@ public class UpdateHandler : IUpdateHandler
         {
             reminder.ReminderDays.Remove(dayOfWeek);
             _reminderRepository.UpdateReminder(reminder);
-            
+
             await _botClient.AnswerCallbackQueryAsync(
                 callbackQueryId: callbackQuery.Id,
                 text: $"Исключен: {CultureInfo.GetCultureInfo("ru-RU").DateTimeFormat.GetDayName(dayOfWeek)}",
@@ -336,7 +346,7 @@ public class UpdateHandler : IUpdateHandler
         if (exception is RequestException)
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
     }
-    
+
     /// <summary>
     /// Вывести пользователю все доступные команды
     /// </summary>
