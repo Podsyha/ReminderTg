@@ -1,4 +1,4 @@
-namespace ReminderTg.Abstract;
+namespace ReminderTg.Services.Abstract;
 
 /// <summary>
 /// A marker interface for Update Receiver service

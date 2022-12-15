@@ -1,4 +1,4 @@
-using ReminderTg.Models;
+using ReminderTg.Infrastructure.Models;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;

@@ -1,4 +1,4 @@
-using ReminderTg.Abstract;
+using ReminderTg.Services.Abstract;
 
 namespace ReminderTg.Services;
 

@@ -1,4 +1,4 @@
-﻿namespace ReminderTg.Models;
+﻿namespace ReminderTg.Infrastructure.Models;
 
 /// <summary>
 /// Этап создания напоминания

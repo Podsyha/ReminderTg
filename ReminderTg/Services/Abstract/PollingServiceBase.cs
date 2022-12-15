@@ -1,4 +1,4 @@
-namespace ReminderTg.Abstract;
+namespace ReminderTg.Services.Abstract;
 
 // A background service consuming a scoped service.
 // See more: https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services#consuming-a-scoped-service-in-a-background-task
