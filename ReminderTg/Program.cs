@@ -22,8 +22,10 @@ IHost host = Host.CreateDefaultBuilder(args)
         var connectionString = context.Configuration.GetConnectionString("DefaultConnection");
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString), ServiceLifetime.Transient);
-
+        
+        services.AddSingleton<ICreationStagesRepository, CreationStagesRepository>();
         services.AddTransient<IReminderRepository, ReminderRepository>();
+        services.AddMemoryCache();
         services.AddScoped<UpdateHandler>();
         services.AddScoped<ReceiverService>();
         services.AddHostedService<PollingService>();

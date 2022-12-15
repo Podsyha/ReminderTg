@@ -11,20 +11,18 @@ namespace ReminderTg.Services;
 public class UpdateHandler : IUpdateHandler
 {
     public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger,
-        IReminderRepository reminderRepository)
+        IReminderRepository reminderRepository, ICreationStagesRepository creationStagesRepository)
     {
         _botClient = botClient;
         _logger = logger;
         _reminderRepository = reminderRepository;
+        _creationStagesRepository = creationStagesRepository;
     }
 
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<UpdateHandler> _logger;
     private readonly IReminderRepository _reminderRepository;
-
-    // TODO сделать хранение в памяти приложения с timelife
-    private static List<CreationStage> _creationStages = new();
-
+    private readonly ICreationStagesRepository _creationStagesRepository;
 
     /// <summary>
     /// Хендлер событий в боте
@@ -70,7 +68,7 @@ public class UpdateHandler : IUpdateHandler
     /// </summary>
     private async Task OtherCallbackQuery(CallbackQuery callbackQuery, CancellationToken cancellationToken)
     {
-        var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
+        var stage = _creationStagesRepository.GetStage(callbackQuery.From.Id);
 
         if (stage != null)
             await SetReminderDays(stage, callbackQuery, cancellationToken);
@@ -83,7 +81,7 @@ public class UpdateHandler : IUpdateHandler
         CancellationToken cancellationToken)
     {
         string text;
-        var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
+        var stage = _creationStagesRepository.GetStage(callbackQuery.From.Id);
 
         if (stage is { StageType: CreationStage.Stages.Day })
         {
@@ -91,7 +89,7 @@ public class UpdateHandler : IUpdateHandler
 
             if (reminder is { ReminderDays.Count: > 0, IsSave: false })
             {
-                _creationStages.Remove(stage);
+                _creationStagesRepository.RemoveStage(stage);
                 reminder.IsSave = true;
                 text = "Сохранено";
             }
@@ -165,7 +163,7 @@ public class UpdateHandler : IUpdateHandler
         CreationStage stage = new(message.Chat.Id, reminder.Id);
 
         await _reminderRepository.AddReminder(reminder);
-        _creationStages.Add(stage);
+        _creationStagesRepository.AddStage(stage);
 
         await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -177,7 +175,7 @@ public class UpdateHandler : IUpdateHandler
     private async Task OtherMessage(Message message,
         CancellationToken cancellationToken)
     {
-        var stage = _creationStages.FirstOrDefault(x => x.UserId == message.From.Id);
+        var stage = _creationStagesRepository.GetStage(message.From.Id);
 
         if (stage != null)
         {
