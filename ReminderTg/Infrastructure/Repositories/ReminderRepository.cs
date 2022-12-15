@@ -4,21 +4,25 @@ using ReminderTg.Infrastructure.Models;
 
 namespace ReminderTg.Infrastructure.Repositories;
 
-public sealed class ReminderRepository : IReminderRepository
+public sealed class ReminderRepository : DbContextRepository, IReminderRepository
 {
-    public Task<ReminderModel> Add()
+    public ReminderRepository(AppDbContext dbContext) : base(dbContext)
     {
-        AppDbContext.ApiContext test = new();
-        test.Reminder.
     }
 
-    public Task<ReminderModel> Remove()
+    public async Task AddModelAsync(ReminderModel model)
+        => await DbContext.AddAsync(model);
+
+    public void RemoveModel(ReminderModel model)
     {
-        throw new NotImplementedException();
+        DbContext.Remove(model);
     }
 
-    public Task<ReminderModel> Update(ReminderModel model)
+    public void UpdateModel(ReminderModel model)
     {
-        throw new NotImplementedException();
+        DbContext.Update(model);
     }
+
+    public async Task<IList<ReminderModel>> GetAllUserReminders(long userId)
+        => await DbContext.Reminder.Where(x => x.UserId == userId).ToListAsync();
 }

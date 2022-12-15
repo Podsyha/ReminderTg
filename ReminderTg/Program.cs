@@ -1,4 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using ReminderTg.Extensions;
+using ReminderTg.Infrastructure.Context;
+using ReminderTg.Infrastructure.Repositories;
 using ReminderTg.Services;
 using Telegram.Bot;
 
@@ -16,6 +19,11 @@ IHost host = Host.CreateDefaultBuilder(args)
                 return new TelegramBotClient(options, httpClient);
             });
         
+        var connectionString = context.Configuration.GetConnectionString("DefaultConnection");
+        services.AddDbContext<AppDbContext>(options =>
+            options.UseNpgsql(connectionString), ServiceLifetime.Transient);
+
+        services.AddTransient<IReminderRepository, ReminderRepository>();
         services.AddScoped<UpdateHandler>();
         services.AddScoped<ReceiverService>();
         services.AddHostedService<PollingService>();

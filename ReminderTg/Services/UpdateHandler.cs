@@ -1,4 +1,5 @@
 using ReminderTg.Infrastructure.Models;
+using ReminderTg.Infrastructure.Repositories;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
@@ -9,15 +10,16 @@ namespace ReminderTg.Services;
 
 public class UpdateHandler : IUpdateHandler
 {
-    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger)
+    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger, IReminderRepository reminderRepository)
     {
         _botClient = botClient;
         _logger = logger;
+        _reminderRepository = reminderRepository;
     }
 
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<UpdateHandler> _logger;
-    private static List<ReminderModel> _reminders = new();
+    private readonly IReminderRepository _reminderRepository;
     private static List<CreationStage> _creationStages = new();
 
 
@@ -125,7 +127,9 @@ public class UpdateHandler : IUpdateHandler
     private async Task<Message> GetReminderList(Message message,
         CancellationToken cancellationToken)
     {
-        var reminders = _reminders.Where(x => x.UserId == message.From.Id).Select(x => x.Title);
+        var reminders = _reminderRepository.GetAllUserReminders(message.From.Id);
+        
+        
 
         return await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -178,9 +182,9 @@ public class UpdateHandler : IUpdateHandler
         CancellationToken cancellationToken)
     {
         ReminderModel reminder = new(message.From.Id);
-        CreationStage stage = new(message.Chat.Id, reminder.ReminderId);
+        CreationStage stage = new(message.Chat.Id, reminder.Id);
 
-        _reminders.Add(reminder);
+        await _reminderRepository.AddModelAsync(reminder);
         _creationStages.Add(stage);
 
         return await _botClient.SendTextMessageAsync(
@@ -222,7 +226,7 @@ public class UpdateHandler : IUpdateHandler
     private async Task<Message> SetReminderTitle(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
-        _reminders.First(x => x.ReminderId == stage.ReminderId).Title = message.Text;
+        _reminders.First(x => x.Id == stage.ReminderId).Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
 
         return await _botClient.SendTextMessageAsync(
@@ -249,7 +253,7 @@ public class UpdateHandler : IUpdateHandler
                 cancellationToken: cancellationToken);
         }
 
-        _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderTime = resultTime;
+        _reminders.First(x => x.Id == stage.ReminderId).ReminderTime = resultTime;
         stage.StageType = CreationStage.Stages.Day;
 
         InlineKeyboardMarkup inlineKeyboard = new(
@@ -302,7 +306,7 @@ public class UpdateHandler : IUpdateHandler
 
         DayOfWeek dayOfWeek = (DayOfWeek)resultNumberDay;
 
-        _reminders.First(x => x.ReminderId == stage.ReminderId).ReminderDays.Add(dayOfWeek);
+        _reminders.First(x => x.Id == stage.ReminderId).ReminderDays.Add(dayOfWeek);
 
         await _botClient.AnswerCallbackQueryAsync(
             callbackQueryId: callbackQuery.Id,

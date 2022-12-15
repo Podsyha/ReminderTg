@@ -7,13 +7,12 @@ public sealed class ReminderModel
 {
     public ReminderModel(long userId)
     {
-        ReminderId = Guid.NewGuid();
         UserId = userId;
         IsSave = false;
         ReminderDays = new();
     }
     
-    public Guid ReminderId { get; set; }
+    public Guid Id { get; set; }
     public string Title { get; set; }
     public TimeOnly ReminderTime { get; set; }
     public List<DayOfWeek> ReminderDays { get; set; }
