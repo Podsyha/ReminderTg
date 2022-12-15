@@ -157,7 +157,7 @@ public class UpdateHandler : IUpdateHandler
         ReminderModel reminder = new(message.From.Id);
         CreationStage stage = new(message.Chat.Id, reminder.Id);
 
-        await _reminderRepository.AddModelAsync(reminder);
+        await _reminderRepository.AddReminder(reminder);
         _creationStages.Add(stage);
 
         await _botClient.SendTextMessageAsync(

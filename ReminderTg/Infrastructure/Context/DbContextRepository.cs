@@ -3,9 +3,9 @@
 /// <summary>
 /// Репозиторий контекста
 /// </summary>
-public class DbContextRepository : AppDbContext
+public class DbContextRepository
 {
-    public DbContextRepository(AppDbContext dbContext)
+    protected DbContextRepository(AppDbContext dbContext)
     {
         DbContext = dbContext;
     }
@@ -16,20 +16,20 @@ public class DbContextRepository : AppDbContext
     /// Добавить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    public async Task AddModelAsync<T>(T model) where T : class
+    protected async Task AddModelAsync<T>(T model) where T : class
         => await DbContext.AddAsync(model);
 
     /// <summary>
     /// Удалить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    public void RemoveModel<T>(T model) where T : class
+    protected void RemoveModel<T>(T model) where T : class
         => DbContext.Remove(model);
 
     /// <summary>
     /// Обновить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    public void UpdateModel<T>(T model) where T : class
+    protected void UpdateModel<T>(T model) where T : class
         => DbContext.Update(model);
 }

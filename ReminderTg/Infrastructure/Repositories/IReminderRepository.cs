@@ -11,17 +11,17 @@ public interface IReminderRepository
     /// Добавить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    public Task AddModelAsync(ReminderModel model);
+    public Task AddReminder(ReminderModel model);
     /// <summary>
     /// Удалить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    public void RemoveModel(ReminderModel model);
+    public void RemoveReminder(ReminderModel model);
     /// <summary>
     /// Обновить модель
     /// </summary>
     /// <param name="model">Сущность бд</param>
-    public void UpdateModel(ReminderModel model);
+    public void UpdateReminder(ReminderModel model);
     /// <summary>
     /// Получить все напоминания пользователя
     /// </summary>

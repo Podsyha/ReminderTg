@@ -6,16 +6,13 @@ namespace ReminderTg.Infrastructure.Context;
 /// <summary>
 /// Инициализация контекста бд
 /// </summary>
-public abstract class AppDbContext : DbContext
+public class AppDbContext : DbContext
 {
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
-        optionsBuilder.UseInMemoryDatabase(databaseName: "ReminderDb");
+
     }
 
-    public DbSet<ReminderModel> Reminder { get; set; }
-    public DbSet<CreationStage> CreationStage { get; set; }
-    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -28,4 +25,6 @@ public abstract class AppDbContext : DbContext
              .IsRequired();
          #endregion
     }
+    
+    public virtual DbSet<ReminderModel> Reminder { get; set; }
 }
