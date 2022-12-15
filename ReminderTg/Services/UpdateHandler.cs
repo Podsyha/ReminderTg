@@ -10,7 +10,8 @@ namespace ReminderTg.Services;
 
 public class UpdateHandler : IUpdateHandler
 {
-    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger, IReminderRepository reminderRepository)
+    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger,
+        IReminderRepository reminderRepository)
     {
         _botClient = botClient;
         _logger = logger;
@@ -52,7 +53,7 @@ public class UpdateHandler : IUpdateHandler
 
         if (callbackQuery.Data is not { } messageTextData)
             return;
-        
+
         switch (messageTextData.Split(' ')[0])
         {
             case "/end_reminder":
@@ -74,7 +75,8 @@ public class UpdateHandler : IUpdateHandler
 
 
     //TODO копия метода из обработчика message, переписать и актуализировать
-    private async Task<Message> CallbackQueryEndReminder(CallbackQuery callbackQuery, CancellationToken cancellationToken)
+    private async Task<Message> CallbackQueryEndReminder(CallbackQuery callbackQuery,
+        CancellationToken cancellationToken)
     {
         string text = string.Empty;
         var stage = _creationStages.FirstOrDefault(x => x.UserId == callbackQuery.From.Id);
@@ -113,14 +115,11 @@ public class UpdateHandler : IUpdateHandler
     {
         if (message.Text is not { } messageText)
             return;
-        
+
         switch (messageText.Split(' ')[0])
         {
             case "/create_reminder":
                 await InitializeReminder(message, cancellationToken);
-                break;
-            case "/end_reminder":
-                await MessageEndReminder(message, cancellationToken);
                 break;
             case "/list_reminder":
                 await GetReminderList(message, cancellationToken);
@@ -137,50 +136,19 @@ public class UpdateHandler : IUpdateHandler
     private async Task GetReminderList(Message message,
         CancellationToken cancellationToken)
     {
-        var reminders = _reminderRepository.GetAllUserReminders(message.From.Id);
+        var reminders = await _reminderRepository.GetAllUserReminders(message.From.Id);
 
-        await _botClient.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: string.Join(", ", reminders),
-            replyMarkup: new ReplyKeyboardRemove(),
-            cancellationToken: cancellationToken);
-    }
-
-    /// <summary>
-    /// Завершить заполнение и сохранить напоминание
-    /// </summary>
-    /// <returns></returns>
-    private async Task MessageEndReminder(Message message,
-        CancellationToken cancellationToken)
-    {
-        string text = string.Empty;
-        var stage = _creationStages.FirstOrDefault(x => x.UserId == message.From.Id);
-
-        if (stage is { StageType: CreationStage.Stages.Day })
+        foreach (var reminder in reminders)
         {
-            var reminder = _reminders.FirstOrDefault(x => x.UserId == message.From.Id);
+            InlineKeyboardMarkup inlineKeyboard =
+                InlineKeyboardButton.WithCallbackData("Удалить", $"/delete_reminder_{reminder.Id}");
 
-            if (reminder is { ReminderDays.Count: > 0, IsSave: false })
-            {
-                _creationStages.Remove(stage);
-                reminder.IsSave = true;
-                text = "Сохранено";
-            }
-            else
-            {
-                text = $"Ошибка. Кол-во дней: {reminder.ReminderDays.Count}. Статус: {reminder.IsSave}";
-            }
+            await _botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: reminder.ToString(),
+                replyMarkup: inlineKeyboard,
+                cancellationToken: cancellationToken);
         }
-        else
-        {
-            text = $"Ошибка. Состояние: {stage.StageType}";
-        }
-
-        await _botClient.SendTextMessageAsync(
-            chatId: message.Chat.Id,
-            text: text,
-            replyMarkup: new ReplyKeyboardRemove(),
-            cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -319,7 +287,7 @@ public class UpdateHandler : IUpdateHandler
                 text: "Ошибка конвертации даты, попробуйте снова:",
                 replyMarkup: new ReplyKeyboardRemove(),
                 cancellationToken: cancellationToken);
-            
+
             return;
         }
 

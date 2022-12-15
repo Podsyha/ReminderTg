@@ -18,4 +18,9 @@ public sealed class ReminderModel
     public List<DayOfWeek> ReminderDays { get; set; }
     public long UserId { get; set; }
     public bool IsSave { get; set; }
+
+    public override string ToString()
+    {
+        return $"Title: {Title}\n Days: {ReminderDays}\n Time: {ReminderTime}";
+    }
 }
