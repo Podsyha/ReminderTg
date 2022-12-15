@@ -109,7 +109,7 @@ public class UpdateHandler : IUpdateHandler
         if (message.Text is not { } messageText)
             return;
 
-        Task<Message> action = messageText.Split(' ')[0] switch
+        Task action = messageText.Split(' ')[0] switch
         {
             "/create_reminder" => InitializeReminder(message, cancellationToken),
             "/end_reminder" => MessageEndReminder(message, cancellationToken),
@@ -124,14 +124,14 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Получить список всех напоминаний юзера
     /// </summary>
-    private async Task<Message> GetReminderList(Message message,
+    private async Task GetReminderList(Message message,
         CancellationToken cancellationToken)
     {
         var reminders = _reminderRepository.GetAllUserReminders(message.From.Id);
         
         
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: string.Join(", ", reminders),
             replyMarkup: new ReplyKeyboardRemove(),
@@ -142,7 +142,7 @@ public class UpdateHandler : IUpdateHandler
     /// Завершить заполнение и сохранить напоминание
     /// </summary>
     /// <returns></returns>
-    private async Task<Message> MessageEndReminder(Message message,
+    private async Task MessageEndReminder(Message message,
         CancellationToken cancellationToken)
     {
         string text = string.Empty;
@@ -168,7 +168,7 @@ public class UpdateHandler : IUpdateHandler
             text = $"Ошибка. Состояние: {stage.StageType}";
         }
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: text,
             replyMarkup: new ReplyKeyboardRemove(),
@@ -178,7 +178,7 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Создать напоминание
     /// </summary>
-    private async Task<Message> InitializeReminder(Message message,
+    private async Task InitializeReminder(Message message,
         CancellationToken cancellationToken)
     {
         ReminderModel reminder = new(message.From.Id);
@@ -187,25 +187,24 @@ public class UpdateHandler : IUpdateHandler
         await _reminderRepository.AddModelAsync(reminder);
         _creationStages.Add(stage);
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: "Введите название напоминания",
             replyMarkup: new ReplyKeyboardRemove(),
             cancellationToken: cancellationToken);
     }
 
-    private async Task<Message> OtherMessage(Message message,
+    private async Task OtherMessage(Message message,
         CancellationToken cancellationToken)
     {
         var stage = _creationStages.FirstOrDefault(x => x.UserId == message.From.Id);
 
         if (stage != null)
         {
-            return stage.StageType switch
+            stage.StageType switch
             {
                 CreationStage.Stages.Title => await SetReminderTitle(stage, message, cancellationToken),
-                CreationStage.Stages.Time => await SetReminderTime(stage, message, cancellationToken),
-                _ => throw new ArgumentOutOfRangeException()
+                CreationStage.Stages.Time => await SetReminderTime(stage, message, cancellationToken)
             };
         }
 
@@ -213,7 +212,7 @@ public class UpdateHandler : IUpdateHandler
                        "/create_reminder - создать напоминание\n" +
                        "/list_reminder   - список всех напоминаний";
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: usage,
             replyMarkup: new ReplyKeyboardRemove(),
@@ -223,13 +222,13 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить название напоминанию
     /// </summary>
-    private async Task<Message> SetReminderTitle(CreationStage stage, Message message,
+    private async Task SetReminderTitle(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
         _reminders.First(x => x.Id == stage.ReminderId).Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: "Введите время напоминания:",
             replyMarkup: new ReplyKeyboardRemove(),
@@ -239,18 +238,20 @@ public class UpdateHandler : IUpdateHandler
     /// <summary>
     /// Установить время напоминания
     /// </summary>
-    private async Task<Message> SetReminderTime(CreationStage stage, Message message,
+    private async Task SetReminderTime(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
         bool isParsed = TimeOnly.TryParse(message.Text, out TimeOnly resultTime);
 
         if (!isParsed)
         {
-            return await _botClient.SendTextMessageAsync(
+            await _botClient.SendTextMessageAsync(
                 chatId: message.Chat.Id,
                 text: "Ошибка конвертации времени, попробуйте снова:",
                 replyMarkup: new ReplyKeyboardRemove(),
                 cancellationToken: cancellationToken);
+
+            return;
         }
 
         _reminders.First(x => x.Id == stage.ReminderId).ReminderTime = resultTime;
@@ -278,7 +279,7 @@ public class UpdateHandler : IUpdateHandler
                 }
             });
 
-        return await _botClient.SendTextMessageAsync(
+        await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
             text: "Выберите дни напоминания:",
             replyMarkup: inlineKeyboard,
