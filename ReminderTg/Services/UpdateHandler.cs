@@ -70,8 +70,27 @@ public class UpdateHandler : IUpdateHandler
         CancellationToken cancellationToken)
     {
         var messageStrings = message.Split('_');
-        var reminderId = messageStrings[^1];
-        throw new NotImplementedException();
+        try
+        {
+            var reminderId = new Guid(messageStrings[^1]);
+            var reminder = await _reminderRepository.GetReminderById(reminderId);
+            
+            _reminderRepository.RemoveReminder(reminder);
+            
+            await _botClient.SendTextMessageAsync(
+                chatId: callbackQuery.Message.Chat.Id,
+                text: "Удалено",
+                replyMarkup: new ReplyKeyboardRemove(),
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception e)
+        {
+            await _botClient.SendTextMessageAsync(
+                chatId: callbackQuery.Message.Chat.Id,
+                text: $"Ошибка удаления: {e.Message}",
+                replyMarkup: new ReplyKeyboardRemove(),
+                cancellationToken: cancellationToken);
+        }
     }
 
     /// <summary>
