@@ -22,7 +22,34 @@ namespace ReminderTg.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("ReminderTg.Infrastructure.Models.ReminderModel", b =>
+            modelBuilder.Entity("ReminderTg.Infrastructure.Models.OnceReminderModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsSave")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("ReminderDateTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("text");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OnceReminder");
+                });
+
+            modelBuilder.Entity("ReminderTg.Infrastructure.Models.RepeatReminderModel", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -46,7 +73,7 @@ namespace ReminderTg.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Reminder");
+                    b.ToTable("RepeatReminder");
                 });
 #pragma warning restore 612, 618
         }

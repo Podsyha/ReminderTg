@@ -26,6 +26,15 @@ public class AppDbContext : DbContext
          modelBuilder.Entity<RepeatReminderModel>()
              .Property(x => x.UserId)
              .IsRequired();
+
+         modelBuilder.Entity<OnceReminderModel>()
+             .HasKey(x => x.Id);
+         modelBuilder.Entity<OnceReminderModel>()
+             .Property(x => x.IsSave)
+             .IsRequired();
+         modelBuilder.Entity<OnceReminderModel>()
+             .Property(x => x.UserId)
+             .IsRequired();
          #endregion
     }
     

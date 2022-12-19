@@ -12,10 +12,12 @@ public sealed class OnceReminderModel
     public Guid Id { get; set; }
     public string? Title { get; set; }
     public DateTime ReminderDateTime { get; set; }
-    public TimeZoneInfo TimeZoneInfo { get; set; }
+    public string TimeZone { get; set; }
     public long UserId { get; set; }
     public bool IsSave { get; set; }
 
+    private TimeZoneInfo FindSystemTimeZoneById(string timeZoneId) => TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+
     public override string ToString() =>
-        $"Название: {Title}\n\nДата: {ReminderDateTime}\nЧасовой пояс: {TimeZoneInfo.DisplayName}";
+        $"Название: {Title}\n\nДата: {ReminderDateTime}\nЧасовой пояс: {FindSystemTimeZoneById(TimeZone).DisplayName}";
 }

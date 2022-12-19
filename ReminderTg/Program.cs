@@ -25,6 +25,7 @@ IHost host = Host.CreateDefaultBuilder(args)
         
         services.AddSingleton<ICreationStagesRepository, CreationStagesRepository>();
         services.AddTransient<IRepeatReminderRepository, RepeatReminderRepository>();
+        services.AddTransient<IOnceReminderRepository, OnceReminderRepository>();
         services.AddMemoryCache();
         services.AddScoped<UpdateHandler>();
         services.AddScoped<ReceiverService>();
