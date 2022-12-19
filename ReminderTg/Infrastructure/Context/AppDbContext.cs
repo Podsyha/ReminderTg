@@ -18,16 +18,17 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         #region FluentAPI
-         modelBuilder.Entity<ReminderModel>()
+         modelBuilder.Entity<RepeatReminderModel>()
             .HasKey(x => x.Id);
-         modelBuilder.Entity<ReminderModel>()
+         modelBuilder.Entity<RepeatReminderModel>()
              .Property(x => x.IsSave)
              .IsRequired();
-         modelBuilder.Entity<ReminderModel>()
+         modelBuilder.Entity<RepeatReminderModel>()
              .Property(x => x.UserId)
              .IsRequired();
          #endregion
     }
     
-    public virtual DbSet<ReminderModel> Reminder { get; set; }
+    public virtual DbSet<RepeatReminderModel> RepeatReminder { get; set; }
+    public virtual DbSet<OnceReminderModel> OnceReminder { get; set; }
 }

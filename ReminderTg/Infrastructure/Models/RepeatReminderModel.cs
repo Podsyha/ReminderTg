@@ -5,9 +5,9 @@ namespace ReminderTg.Infrastructure.Models;
 /// <summary>
 /// Модель напоминания
 /// </summary>
-public sealed class ReminderModel
+public sealed class RepeatReminderModel
 {
-    public ReminderModel(long userId)
+    public RepeatReminderModel(long userId)
     {
         Id = Guid.NewGuid();
         UserId = userId;

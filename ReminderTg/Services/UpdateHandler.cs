@@ -12,18 +12,20 @@ namespace ReminderTg.Services;
 public class UpdateHandler : IUpdateHandler
 {
     public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger,
-        IReminderRepository reminderRepository, ICreationStagesRepository creationStagesRepository)
+        IRepeatReminderRepository repeatReminderRepository, ICreationStagesRepository creationStagesRepository, IOnceReminderRepository onceReminderRepository)
     {
         _botClient = botClient;
         _logger = logger;
-        _reminderRepository = reminderRepository;
+        _repeatReminderRepository = repeatReminderRepository;
         _creationStagesRepository = creationStagesRepository;
+        _onceReminderRepository = onceReminderRepository;
     }
 
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<UpdateHandler> _logger;
-    private readonly IReminderRepository _reminderRepository;
+    private readonly IRepeatReminderRepository _repeatReminderRepository;
     private readonly ICreationStagesRepository _creationStagesRepository;
+    private readonly IOnceReminderRepository _onceReminderRepository;
 
     /// <summary>
     /// Хендлер событий в боте
@@ -73,9 +75,9 @@ public class UpdateHandler : IUpdateHandler
         try
         {
             var reminderId = new Guid(messageStrings[^1]);
-            var reminder = await _reminderRepository.GetReminderById(reminderId);
+            var reminder = await _repeatReminderRepository.GetReminderById(reminderId);
             
-            _reminderRepository.RemoveReminder(reminder);
+            _repeatReminderRepository.RemoveReminder(reminder);
             
             await _botClient.SendTextMessageAsync(
                 chatId: callbackQuery.Message.Chat.Id,
@@ -117,13 +119,13 @@ public class UpdateHandler : IUpdateHandler
 
         if (stage is { StageType: CreationStage.Stages.Day })
         {
-            var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+            var reminder = await _repeatReminderRepository.GetReminderById(stage.ReminderId);
 
             if (reminder is { ReminderDays.Count: > 0, IsSave: false })
             {
                 _creationStagesRepository.RemoveStage(stage);
                 reminder.IsSave = true;
-                _reminderRepository.UpdateReminder(reminder);
+                _repeatReminderRepository.UpdateReminder(reminder);
                 text = "Сохранено";
             }
             else
@@ -150,19 +152,27 @@ public class UpdateHandler : IUpdateHandler
     {
         if (message.Text is not { } messageText)
             return;
+        
+        var text = messageText.Split(' ')[0];
 
-        switch (messageText.Split(' ')[0])
-        {
-            case "/create_repeat_reminder":
-                await InitializeReminder(message, cancellationToken);
-                break;
-            case "/list_reminder":
-                await GetReminderList(message, cancellationToken);
-                break;
-            default:
-                await OtherMessage(message, cancellationToken);
-                break;
-        }
+        if (text == "/create_repeat_reminder")
+            await InitializeReminder(message, cancellationToken);
+        else if (text.StartsWith("/short//"))
+            await CreateShortReminder(message, cancellationToken);
+        else if (text == "/list_reminder")
+            await GetReminderList(message, cancellationToken);
+        else if (text == "/help")
+            await WriteHelpMessage(message.From.Id, cancellationToken);
+        else
+            await OtherMessage(message, cancellationToken);
+    }
+
+    /// <summary>
+    /// Быстрое создание напоминания
+    /// </summary>
+    private async Task CreateShortReminder(Message message, CancellationToken cancellationToken)
+    {
+        throw new NotImplementedException();
     }
 
     /// <summary>
@@ -171,7 +181,7 @@ public class UpdateHandler : IUpdateHandler
     private async Task GetReminderList(Message message,
         CancellationToken cancellationToken)
     {
-        var reminders = await _reminderRepository.GetAllUserReminders(message.From.Id);
+        var reminders = await _repeatReminderRepository.GetAllUserReminders(message.From.Id);
 
         foreach (var reminder in reminders)
         {
@@ -192,10 +202,10 @@ public class UpdateHandler : IUpdateHandler
     private async Task InitializeReminder(Message message,
         CancellationToken cancellationToken)
     {
-        ReminderModel reminder = new(message.From.Id);
-        CreationStage stage = new(message.Chat.Id, reminder.Id);
+        RepeatReminderModel repeatReminder = new(message.From.Id);
+        CreationStage stage = new(message.Chat.Id, repeatReminder.Id);
 
-        await _reminderRepository.AddReminder(reminder);
+        await _repeatReminderRepository.AddReminder(repeatReminder);
         _creationStagesRepository.AddStage(stage);
 
         await _botClient.SendTextMessageAsync(
@@ -240,10 +250,10 @@ public class UpdateHandler : IUpdateHandler
     private async Task SetReminderTitle(CreationStage stage, Message message,
         CancellationToken cancellationToken)
     {
-        var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+        var reminder = await _repeatReminderRepository.GetReminderById(stage.ReminderId);
         reminder.Title = message.Text;
         stage.StageType = CreationStage.Stages.Time;
-        _reminderRepository.UpdateReminder(reminder);
+        _repeatReminderRepository.UpdateReminder(reminder);
 
         await _botClient.SendTextMessageAsync(
             chatId: message.Chat.Id,
@@ -272,10 +282,10 @@ public class UpdateHandler : IUpdateHandler
             return;
         }
 
-        var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+        var reminder = await _repeatReminderRepository.GetReminderById(stage.ReminderId);
         reminder.ReminderTime = resultTime;
         stage.StageType = CreationStage.Stages.Day;
-        _reminderRepository.UpdateReminder(reminder);
+        _repeatReminderRepository.UpdateReminder(reminder);
 
         InlineKeyboardMarkup inlineKeyboard = new(
             new[]
@@ -326,11 +336,11 @@ public class UpdateHandler : IUpdateHandler
         }
 
         DayOfWeek dayOfWeek = (DayOfWeek)resultNumberDay;
-        var reminder = await _reminderRepository.GetReminderById(stage.ReminderId);
+        var reminder = await _repeatReminderRepository.GetReminderById(stage.ReminderId);
         if (reminder.CheckAvailableDay(dayOfWeek))
         {
             reminder.ReminderDays.Add(dayOfWeek);
-            _reminderRepository.UpdateReminder(reminder);
+            _repeatReminderRepository.UpdateReminder(reminder);
 
             await _botClient.AnswerCallbackQueryAsync(
                 callbackQueryId: callbackQuery.Id,
@@ -340,7 +350,7 @@ public class UpdateHandler : IUpdateHandler
         else
         {
             reminder.ReminderDays.Remove(dayOfWeek);
-            _reminderRepository.UpdateReminder(reminder);
+            _repeatReminderRepository.UpdateReminder(reminder);
 
             await _botClient.AnswerCallbackQueryAsync(
                 callbackQueryId: callbackQuery.Id,
@@ -375,6 +385,17 @@ public class UpdateHandler : IUpdateHandler
                              "/create_repeat_reminder - создать повторяющееся напоминание\n" +
                              "/create_reminder - создать разовое напоминание(НЕДОСТУПНО)\n" +
                              "/list_reminder   - список всех напоминаний";
+
+        await _botClient.SendTextMessageAsync(
+            chatId: chatId,
+            text: usage,
+            replyMarkup: new ReplyKeyboardRemove(),
+            cancellationToken: cancellationToken);
+    }
+    
+    private async Task WriteHelpMessage(ChatId chatId, CancellationToken cancellationToken)
+    {
+        const string usage = "Гайд:\n";
 
         await _botClient.SendTextMessageAsync(
             chatId: chatId,

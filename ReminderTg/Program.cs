@@ -24,7 +24,7 @@ IHost host = Host.CreateDefaultBuilder(args)
             options.UseNpgsql(connectionString), ServiceLifetime.Transient);
         
         services.AddSingleton<ICreationStagesRepository, CreationStagesRepository>();
-        services.AddTransient<IReminderRepository, ReminderRepository>();
+        services.AddTransient<IRepeatReminderRepository, RepeatReminderRepository>();
         services.AddMemoryCache();
         services.AddScoped<UpdateHandler>();
         services.AddScoped<ReceiverService>();
